@@ -1,0 +1,419 @@
+---
+output: html_document
+editor_options: 
+  chunk_output_type: console
+---
+Análise do dataset de Vinhos Brancos por Eduardo Juste
+========================================================
+
+```{r echo=FALSE, message=FALSE, warning=FALSE, packages}
+# Carregue aqui todos os pacotes utilizados 
+# na sua análise realizada neste arquivo fonte.
+
+# Note que o parâmetro "echo" foi definido como FALSE neste código.
+# Isso previne que o código apresente resultados formatados em HTML.
+# Você deve definir echo=FALSE para todos os blocos de código no seu arquivo.
+
+library(ggplot2)
+library(knitr)
+library(dplyr)
+library(gridExtra)
+library(GGally)
+library(doBy)
+library(corrplot)
+```
+Carreguei os dados e abri as primeiras 8 linhas.
+```{r echo=FALSE, Load_the_Data}
+# Carregamento dos dados
+wine_data <- read.csv('wineQualityWhites.csv')
+
+head(wine_data, 8)
+```
+Observando a estrutura dos dados e diferentes tipos.
+```{r echo=FALSE}
+str(wine_data)
+```
+Observando o resumo do dataset para verificar se há linhas faltantes.
+```{r echo=FALSE}
+sum(is.na(wine_data))
+```
+###Introdução:
+Esse dataset foi retirado dos datasets públicos fornecidos pela Udacity. 
+Me interessou por ser de um assunto que gosto, qualidade de vinho.
+Este conjunto de dados contém 4.898 vinhos brancos com 11 variáveis de propriedades químicas do vinho. Ao menos 3 especialistas em vinhos avaliaram cada vinho, fornecendo uma nota entre 0 (muito ruim) e 10 (muito excelente).
+A ideia é que consiga encontrar uma relação entre os diferentes componentes e a qualidade da bebida.
+
+# Seção de Gráficos Univariados
+
+Em um primeiro momento, crio um gráfico de barras para ter uma visão rápida da distribuição de notas de qualidade, e também um resumo estatístico da qualidade.
+```{r echo=FALSE, Univariate_Plots}
+ggplot(wine_data, aes(factor(quality))) +
+  geom_bar()
+```
+```{r echo=FALSE}
+summary(wine_data$quality)
+```
+O resultado foi um histograma normalmente distribuído. A maioria dos vinhos tem qualidade entre 5 e 7, com a barra mais alta sendo a de qualidade 6, representando a qualidade mais comum. Baseado no resumo estatístico, a média de qualidade é 5.878, a qualidade mínima é 3 e a qualidade máxima é 9.
+
+```{r echo=FALSE, warning=FALSE, message=FALSE}
+qplot(x = pH, data = wine_data)
+```
+```{r echo=FALSE}
+summary(wine_data$pH)
+```
+O histograma do pH também é normalmente distribuído e concentrado ao redor de 3.15. O valor mínimo é 2.72 e o máximo 3.82, com mediana 3.18.
+
+```{r echo=FALSE, warning=FALSE, message=FALSE}
+qplot(x = sulphates, data = wine_data, xlim = c(0.35, 0.9))
+```
+```{r echo=FALSE}
+summary(wine_data$sulphates)
+```
+O histograma de sulfatos é enviesado à direita, com os valores mais comuns ocorrendo entre 0.4 e 0.5, com o pico em cerca de 400 contagens. A função xlim foi utilizada para tornar o gráfico mais legível.
+
+```{r echo=FALSE, warning=FALSE, message=FALSE}
+qplot(x = density, data = wine_data, xlim = c(0.987, 1.002))
+```
+```{r echo=FALSE}
+summary(wine_data$density)
+```
+Em um primeiro momento, o histograma de densidade parece ser normalmente distribuído, mas é ligeiramente enviesado à esquerda. A diferença entre os valores mínimos e máximos é menor que 0.5. Novamente, a função xlim foi utilizada para tornar o gráfico mais legível.
+
+```{r echo=FALSE}
+qplot(x = fixed.acidity, data = wine_data, binwidth = 0.2)
+```
+```{r echo=FALSE, warning=FALSE, message=FALSE}
+qplot(x = fixed.acidity, data = wine_data, binwidth = 0.2, xlim = c(4, 10))
+```
+```{r echo=FALSE}
+summary(wine_data$fixed.acidity)
+```
+A distribuição de acidez fixa tem seu pico ao redor de 7 e é enviesada à direita. Foram removidos outliers utilizando a função xlim.
+
+```{r echo=FALSE, warning=FALSE, message=FALSE}
+qplot(x = volatile.acidity, data = wine_data, binwidth = 0.02)
+```
+```{r echo=FALSE, warning=FALSE, message=FALSE}
+qplot(x = volatile.acidity, data = wine_data, binwidth = 0.02, xlim= c(0.08, 0.7))
+```
+```{r echo=FALSE}
+summary(wine_data$volatile.acidity)
+```
+O histograma de acidez volátil é concentrado ao redor de 0.2 e enviesado à direita. A maioria dos valores está localizado entre 0.15 e 0.325. A função xlim foi utilizada para remover outliers.
+
+```{r echo=FALSE, warning=FALSE, message=FALSE}
+qplot(x = residual.sugar, data = wine_data)
+```
+```{r echo=FALSE, warning=FALSE, message=FALSE}
+qplot(x = residual.sugar, data = wine_data) +
+  scale_x_log10()
+```
+```{r echo=FALSE}
+summary(wine_data$residual.sugar)
+```
+A distribuição do açúcar residual é enviesada à direita. Baseado no resumo estatístico e no primeiro histograma, a distribuição da quantidade de açúcar é relativamente dividida: o valor mínimo é 0.6 e o máximo é 65.8 - quase 100 vezes maior que o valor mínimo. Os primeiros três quartos são de menos de 9.9, indicando que existem poucos vinhos que contém mais açúcar. Correspondendo também ao primeiro histograma, que possui poucos valores acima de 20.
+Como no primeiro plot apareceram alguns outliers, decidi utilizar scale_x_log10() para removê-los.
+
+```{r echo=FALSE}
+qplot(x = alcohol, data = wine_data, binwidth = 0.5)
+```
+```{r echo=FALSE}
+summary(wine_data$alcohol)
+```
+A distribuição de teor alcoólico é enviesada à direita, com a maioria dos vinhos tendo teor entre 8.5 e 11. Não existem vinhos com teor menor que 8% e o maior teor álcoolico é de 14.20%.
+
+# Análise Univariada
+
+### Qual é a estrutura do conjunto de dados?
+O conjunto de dados consiste em 13 variáveis e 4898 observações e contém dados de diferentes atributos de vinhos brancos, incluindo acidez, pH, açúcar residual e as avaliações de qualidade.
+As variáveis são todas quantitativas, representadas por tipos int e num.
+De acordo com a análise, não há valores faltantes.
+
+### Quais são os principais atributos de interesse deste conjunto de dados?
+Gostaria de examinar quais atributos tem melhor relação com a qualidade do vinho, portanto pretendo analisar a possível correlação da qualidade com outros componentes: açúcar residual, teor alcoólico, acidez e densidade.
+
+### Quais outros atributos você acha que podem lhe auxiliar na investigação destes atributos de interesse?
+O teor de açúcar costuma influenciar na qualidade do vinho, já que em meu conhecimento, vinhos de maior qualidade tem menor açúcar residual e vice-versa. Também analisarei a correlação com teor alcoólico, densidade e qualidade.
+
+### Você criou novas variáveis a partir dos atributos existentes no conjunto de dados?
+Não foram criadas novas variáveis no conjunto de dados.
+
+### Dos atributos investigados, distribuições incomuns foram encontradas? Você aplicou operações nos dados para limpá-los, ajustá-los ou mudar a forma dos dados? Se sim, por quê?
+O açúcar residual e acidez volátil possuem distribuições incomuns - ambos os histogramas foram fortemente enviesados à direita. Pode ser que esses componentes tenham interferência na qualidade do vinho.
+Como peguei o dataset formatado, não precisei realizar nenhuma operação de limpeza ou reajuste.
+
+
+# Seção de Gráficos Bivariados
+Foram plotadas as variáveis do conjunto de dados afim de ter uma rápida visualização sobre quais valores são relevantes para prever a qualidade do vinho. Baseado na matriz, presume-se que o teor alcoólico possa se correlacionar com a qualidade. Além disso, algumas conexões interessantes foram observadas. Um intervalo de confiança de 0.95 e 0.05 de significância foram definidos, e as variáveis interessantes marcadas com um X.
+
+```{r echo=FALSE, fig.width=6, fig.height=6}
+corr_wine <- cor(wine_data)
+
+sign <- cor.mtest(wine_data, conf.level = 0.95)
+
+corrplot(corr_wine, method = 'circle', cl.pos = "b",
+         p.mat = sign$p, sig.level = 0.05, tl.col = "black")
+```
+
+Foi feito um gráfico de dispersão sobre a relação entre acidez fixa e pH. De acordo com a visualização, quanto menor a acidez fixa, maior o pH; o que faz sentido. Ao calcular o coeficiente de correlação, foi encontrado uma relação negativa moderada (-0.426) e a função stat_smooth() foi utilizada para representá-la.
+
+```{r echo=FALSE, warning=FALSE, message=FALSE}
+ggplot(aes(x = pH, y = fixed.acidity), data = wine_data) +
+  geom_point(alpha = 1/3) +
+  scale_y_continuous(limits = c(3, 12)) +
+  stat_smooth()
+```
+```{r echo=FALSE}
+cor(wine_data$pH, wine_data$fixed.acidity)
+```
+
+Foi criado um gráfico de dispersão sobre sulfatos e teor alcoólico. Não foi encontrada nenhuma correlação entre as duas variáveis, e de acordo com o coeficiente de correlação, sua correlação é de -0.017.
+
+```{r echo=FALSE, warning=FALSE, message=FALSE}
+ggplot(aes(x = sulphates, y = alcohol), data = wine_data) +
+  geom_point(alpha = 1/3) +
+  stat_smooth()
+```
+```{r echo=FALSE}
+cor(wine_data$sulphates, wine_data$alcohol)
+```
+
+Para analisar se a densidade do vinho pode-se relacionar com a quantidade de açúcar residual, foi plotado um gráfico de dispersão relacionando essas duas variáveis. Foi encontrado uma forte correlação positiva entre as mesmas (0.839), o que significa que quando o conteúdo de açúcar aumenta, a densidade também aumenta.
+
+```{r echo=FALSE, warning=FALSE, message=FALSE}
+ggplot(aes(x = residual.sugar, y = density), data = wine_data) +
+  geom_point(alpha = 1/5) +
+  scale_x_continuous(limits = c(0, 30)) +
+  scale_y_continuous(limits = c(0.9875, 1.005)) +
+  stat_smooth()
+```
+```{r echo=FALSE}
+cor(wine_data$residual.sugar, wine_data$density)
+```
+
+Foi feito um gráfico de dispersão entre o teor alcoólico e a densidade do vinho, e calculado o coeficiente de correlação. De acordo com os resultados, há uma forte correlação negativa entre os dois componentes (-0.7801); quanto maior o teor alcoólico, menor a densidade.
+
+```{r echo=FALSE, warning=FALSE, message=FALSE}
+ggplot(aes(x = alcohol, y = density), data = wine_data) +
+  geom_point(alpha = 0.2) +
+  scale_y_continuous(limits = c(0.9875, 1.005)) +
+  geom_smooth()
+```
+```{r echo=FALSE}
+cor(wine_data$alcohol, wine_data$density)
+```
+
+Ao construir um gráfico de dispersão entre açúcar residual e qualidade, tive uma surpresa. Os resultados mostraram que não há correlação entre as duas variáveis (coeficiente de correlação = -0.0976). Isso indica que o açúcar residual não tem influência na qualidade. Esse resultado não estava nas minhas expectativas, visto que pensava que os vinhos melhor qualificados tinham em média menor quantidade de açúcar.
+
+```{r echo=FALSE, warning=FALSE, message=FALSE}
+ggplot(aes(x = quality, y = residual.sugar), data = wine_data) +
+  geom_jitter(alpha = 0.2) +
+  scale_y_continuous(limit = c(0, 25))
+```
+```{r echo=FALSE}
+cor(wine_data$quality, wine_data$residual.sugar)
+```
+
+Foi utilizada a função summaryBy do pacote doBy para resumir o conteúdo de açúcar residual por qualidade, para ter uma visão melhor das médias mais precisas.
+```{r echo=FALSE}
+summaryBy(residual.sugar~quality, data = wine_data, FUN=c(mean))
+```
+
+Foram utilizados boxplots para visualizar a relação entre qualidade e teor alcoólico. Ao calcular o coeficiente de correlação, foi encontrado uma correlação positiva moderada (0.435). Por meio dos boxplots também é possível ver que em média, os vinhos de maior qualidade tem maior teor alcoólico (acima de 11 e 12), enquanto vinhos de qualidade mais baixa tem seu teor alcoólico por volta de 10. Os valores mínimos e máximos também seguem esse padrão: os vinhos menos qualificados tem seu máximo ao redor de 12-13, enquanto so melhores por volta de 14.
+
+```{r echo=FALSE, warning=FALSE, message=FALSE}
+ggplot(aes(x = factor(quality), y = alcohol), data = wine_data) +
+  geom_boxplot() +
+  stat_summary(fun.y = "mean",
+               geom = "point",
+               color = "red",
+               shape = 8,
+               size = 4)
+```
+```{r echo=FALSE}
+summaryBy(alcohol~quality, data = wine_data, FUN=c(mean, min, max))
+```
+```{r echo=FALSE}
+cor(wine_data$alcohol, wine_data$quality)
+```
+De acordo com o arquivo texto que descreve cada variável do conjunto de dados, uma alta acidez volátil pode levar a bebida a ter um gosto ácido desagradável, semelhante ao gosto de vinagre, prejudicando a qualidade. O cálculo da correlação de acidez volátil e qualidade não atingiu minhas expectativas. Entretanto, ao olharmos os boxplots, comparando os mínimos e máximos, e olhando os valores do primeiro e terceiro quartil, podemos perceber que vinhos de menor qualidade possuem um teor mais alto de acidez volátil.
+```{r echo=FALSE, warning=FALSE, message=FALSE}
+ggplot(aes(x = factor(quality), y = volatile.acidity), data = wine_data) +
+  geom_jitter(alpha = 0.2) +
+  scale_y_continuous(limits = c(0.08, 0.7)) +
+  geom_boxplot(alpha = 0.3, color = "blue", lwd = 1.05) +
+  stat_summary(fun.y = "mean",
+               geom = "point",
+               color = "red",
+               shape = 16,
+               size = 3)
+```
+```{r echo=FALSE}
+cor(wine_data$quality, wine_data$volatile.acidity)
+```
+```{r echo=FALSE}
+summaryBy(volatile.acidity~quality, data = wine_data, FUN=c(mean, min, max))
+```
+Foi plotado o gráfico de dispersão da qualidade do vinho com densidade. A correlação encontrada foi de fraca para moderada (-0.3071). Entretando, de acordo com a análise agrupada, os melhores vinhos possuem as menores densidades médias. As diferençasd e densidades estão na casa dos milésimos, o que pode justificar a fraca correlação.
+```{r echo=FALSE, warning=FALSE, message=FALSE}
+ggplot(aes(x = quality, y = density), data = wine_data) +
+  geom_jitter(alpha = 0.3) +
+  scale_y_continuous(limits = c(0.987, 1.005))
+```
+```{r echo=FALSE}
+cor(wine_data$quality, wine_data$density)
+```
+```{r echo=FALSE}
+summaryBy(density~quality, data = wine_data, FUN=c(mean, min, max))
+```
+
+
+# Análise Bivariada
+
+### Discuta sobre alguns dos relacionamentos observados nesta parte da investigação. Como os atributos de interesse variaram no conjunto de dados?
+
+O principal atributo de interesse foi a qualidade do vinho. Foram examinados quais componentes do conjunto de dados podem influenciar na qualidade do vinho, bem como sua correlação com a qualidade. Foi encontrado que teor alcoólico e densidade podem ter papéis importantes na hora de definir a qualidade.
+
+Açúcar residual não correlaciona com qualidade. Os valores médios variam entre 4 e 7.5 e os melhores vinhos possuem o menor açúcar residual (4.12). Entretanto, não podemos predizer a qualidade baseando apenas em açúcar residual.
+
+A variação do teor alcoólico médio entre todas as qualidades é de cerca de 2%. Os melhores vinhos possuem as maiores médias de teor alcoólico (12.18%).
+
+A variação entre as médias de densidade é de menos de 0.01. Há uma correlação negativa de 0.307 entre densidade e qualidade, mas imagino que seja melhor interpretá-la como fraca; não sendo possível predizer a qualidade somente com esse atributo.
+
+A acidez volátil possui a correlação mais forte com qualidade, dentre todos os atributos indicadores de acidez, sendo que os piores vinhos possuem uma proporção mais alta de acidez volátil.
+
+### Você observou algum relacionamento interessante entre os outros atributos (os que não são de interesse)?
+
+Foi observada uma forte correlação entre densidade e açúcar residual, indicando que vinhos de maior densidade possuem maior açúcar residual. Também foi encontrado que densidade e teor alcoólico possuem uma forte correlação negativa; ou seja, quanto maior o teor alcoólico, menor a densidade. Como uma pessoa não especializada na área, eu esperava o contrário dessa relação.
+
+### Qual foi o relacionamento mais forte encontrado?
+
+O relacionamento mais forte encontrado foi o de densidade e açúcar residual, com coeficiente de 0.8389665
+
+
+# Seção de Gráficos Multivariados
+
+Foi feito um gráfico de dispersão para investigar as interações entre açúcar residual e densidade. Os pontos foram agrupados e coloridos por qualidade, para mostrar a correlação dos atributos investigados também com a qualidade. Como resultado, foi encontrada uma forte correlação positiva entre os atributos, com os vinhos de melhor qualidade encontrados na parte de baixo do gráfico.
+
+```{r echo=FALSE, Multivariate_Plots, warning=FALSE, message=FALSE}
+ggplot(aes(x = residual.sugar, y = density,
+           color = factor(quality)), data = wine_data) +
+  geom_point(alpha = 0.5, size = 1) +
+  geom_smooth(method = "lm", se = FALSE, size = 1) +
+  scale_color_brewer(type = "qual", palette = 3) +
+  scale_y_continuous(limits = c(0.987, 1.0025)) +
+  scale_x_continuous(limits = c(0, 20))
+```
+
+Foi feito um gráfico com a possível tendência de sulfatos e teor alcoólico, colorido por qualidade. Foi utilizada a função stat_smooth() para realçar a possível tendência, que pode ser interpretada como não-linear. Os teores mais altos e mais baixos de sulfatos correspondem com um maior teor alcoólico, mas os teores médios de sulfatos correspondem a menores teores alcoólicos. Ao olhar as cores, pode-se ver a forte tendência positiva na distribuição de qualidade; onde há maior teor alcoólico, tende-se a ter vinhos de melhor qualidade.
+```{r echo=FALSE, warning=FALSE, message=FALSE}
+ggplot(aes(x = sulphates, y = alcohol), data = wine_data) +
+  geom_point(aes(color = factor(quality))) +
+  stat_smooth() +
+  scale_color_brewer(type = "qual", palette = "Reds")
+```
+
+Foi criado um boxplot para visualizar a tendência entre qualidade, teor alcoólico e açúcar residual. Foram feitos grupos para separar diferentes níveis de proporção de açúcar residual e ter uma visualização mais clara.
+Pode-se observar a variação do teor alcoólico por qualidade: vinhos de melhor qualidade possuem maior mediana de teor alcoólico, marcados com a estrela vermelha.
+O oposto ocorre com o açúcar residual, já que vinhos de maior teor alcoólico possuem menos açúcar. Essa tendência também pode ser refletida em uma parte importante na produção de vinhos, já que açúcar residual é a parte de glicose e frutose que não foi convertida em álcool durante a fermentação.
+```{r echo=FALSE, warning=FALSE, message=FALSE}
+wine_data$residual.sugar_bucket = cut(wine_data$residual.sugar,
+                                      c(0, 10, 20, 40, 65.8))
+ggplot(aes(x = factor(quality), y = alcohol), data = wine_data) +
+  geom_boxplot(aes(fill = residual.sugar_bucket)) +
+  scale_fill_brewer(type = "seq",
+                    guide = guide_legend(title = wine_data$residual.sugar_bucket)) +
+  stat_summary(fun.y = "median",
+               geom = "point",
+               color = "red",
+               shape = 8,
+               size = 4)
+```
+
+# Análise Multivariada
+
+### Discuta sobre os relacionamentos observados nesta parte da investigação. Quais atributos que fortaleceram os demais na observação das variáveis de interesse?
+
+Qualidade, açúcar residual e densidade no primeiro gráfico se reforçaram, quando foi utilizada cor para realçar alguns aspectos dos dados. Isso também aconteceu com o terceiro gráfico, onde foi comparada teor alcoólico, açúcar residual e qualidade. 
+
+### Interações surpreendentes e/ou interessantes foram encontradas entre os atributos?
+
+Foi interessante observar a relação do açucar residual com teor alcoólico e sua justificativa. Já que no plot 3 pode-se observar bem que a mediana de teor alcoólico sobe, quando o açúcar residual é menor, indicando que houve o processo de fermentação mais efetivo, convertendo açúcar em álcool.
+
+------
+
+# Gráficos Finais e Sumário
+
+### Primeiro Gráfico
+```{r echo=FALSE, Plot_One}
+plot1 <- ggplot(aes(x = factor(quality), y = volatile.acidity), data = wine_data) +
+  geom_boxplot(aes(fill = "c13016"), show.legend = FALSE) +
+  xlab('Qualidade (Notas Entre 0 e 10)') +
+  ylab('Acidez Volátil (ácido acético - g/dm³)') +
+  ggtitle('A relação entre qualidade e acidez volátil') +
+  stat_summary(fun.y = "mean",
+               geom = "point",
+               color = "black",
+               shape = 8,
+               size = 3)
+plot1 +
+  theme(
+    panel.background = element_rect(fill = "#d2c489",
+                                    color = "#d2c489"))
+```
+
+### Descrição do Primeiro Gráfico
+A visualização mostra a correlação entre acidez volátil e qualidade. Não é necessariamente observada uma relação linear entre as faixas de qualidade, mas os vinhos com notas mais baixas tendem a ter volatilidade ácida mais alta, o que faz sentido: vinhos mais ácidos podem ter gosto desagradável. Se compararmos valores entre o primeiro e terceiro quartil, podemos ver que os piores vinhos (notas 3 e 4) possuem acidez mais alta que os melhores (notas 5 a 7). Porém essa tendência não se confirma aos melhores vinhos do conjunto de dados (notas 8 e 9).
+
+### Segundo Gráfico
+```{r echo=FALSE, Plot_Two, warning=FALSE, message=FALSE, fig.width=8.5, fig.height=6}
+plot2 <- ggplot(aes(x = factor(quality), y = alcohol), data = wine_data) +
+  geom_boxplot(aes(fill = residual.sugar_bucket)) +
+  scale_fill_brewer(type = "seq", palette = "Reds",
+                    guide = guide_legend(title = wine_data$residual.sugar_bucket)) +
+  xlab("Qualidade (Nota Entre 0 e 10)") +
+  ylab("Teor alcoólico (% em Volume)") +
+  ggtitle("A correlação entre qualidade e teor alcoólico") +
+  stat_summary(fun.y = "median",
+               geom = "point",
+               color = "black",
+               shape = 8,
+               size = 3)
+plot2 +
+  theme(
+    panel.background = element_rect(fill = "#C0C0C0",
+                                    color = "#C0C0C0")) +
+  guides(fill=guide_legend(title="Açúcar Residual (g/dm³)"))
+```
+
+### Descrição do Segundo Gráfico
+Foram utilizados os valores agrupados anteriormente e boxplots para mostrar um fator importante para determinar a qualidade de um vinho - teor alcoólico. Também pode-se ter uma perspectiva mais detalhada dessa correlação, graças às linhas de correlação categorizadas. Os melhores vinhos possuem maior teor alcoólico e baixo açúcar residual. Anteriormente, foi visto que açúcar residual não corresponde diretamente com a qualidade do vinho, entretanto, açúcar residual e teor alcoólico possuem uma forte correlação, e o teor alcoólico indica fortemente a qualidade do vinho.
+
+### Terceiro Gráfico
+```{r echo=FALSE, Plot_Three, warning=FALSE, message=FALSE, fig.width=8, fig.height=6}
+plot3 <- ggplot(aes(x = residual.sugar, y = density, color = factor(quality)),
+                data = wine_data) +
+  geom_point(alpha = 0.5) +
+  scale_y_continuous(limits = c(0.987, 1.0025)) +
+  scale_x_continuous(limits = c(0, 25)) +
+  xlab("Açúcar residual (g/dm³)") +
+  ylab("Densidade (g/cm³)") +
+  scale_color_brewer(palette = "Reds") +
+  geom_smooth(method = "lm", se = FALSE, size = 1)
+
+plot3$labels$color <- "Qualidade (Nota Entre 0 e 10)"
+
+plot3 +
+  theme(panel.background = element_rect(fill = "#C0C0C0",
+                                        color = "#C0C0C0"))
+```
+
+### Descrição do Terceiro Gráfico
+
+Açúcar residual e densidade são fortemente correlacionadas. A qualidade (representada pela cor), também tem uma tendência a se correlacionar com a densidade. Quanto menor a qualidade, a tendência é que maior seja a densidade.
+------
+
+# Reflexão
+O principal atributo para análise nesse projeto foi a qualidade do vinho, e quais outras variáveis tendem a influenciar a nota final de qualidade, como teor alcoólico e densidade. Na primeira parte, foram feitos histogramas com os principais fatores e também com outros atributos. Na parte de análise bivariada, foi feita uma investigação de correlação dos principais atributos escolhidos com a qualidade. Outras relações também foram observadas, mas não muito exploradas, como a relação de sulfatos com teor alcoólico (que pode ser uma exploração em projeto futuro). Na terceira parte, foram então realçadas as principais descobertas, que refletiram nos principais componentes que afetam a qualidade do vinho branco.
+Meu maior desafio foi encontrar visualizações que sejam rápidas de entender e interpretar, com contrastes bons, sem ficar poluída ou com informação sobressalente.
+
